@@ -1,0 +1,133 @@
+#pragma comment(linker, "/STACK:1024000000,1024000000") 
+#include <cstdio>
+#include <vector>
+#include <cstring>
+#include <algorithm>
+
+using namespace std;
+
+const int MAXN = 200001;
+const int MAXM = 400001;
+const int Maxlog = 20;
+
+struct Edge{
+	int node, next;
+}e[MAXM];
+
+struct Chain{
+	int x, y, val;
+}c[MAXM];
+
+int T, n, m, t, tot, h[MAXN], f[MAXN][21], d[MAXN], l[MAXN], r[MAXN], b[MAXN], dp[MAXN];
+vector<int> g[MAXN];
+
+void add(int x, int d) {
+	for (int i = x; i <= tot; i += i & -i) b[i] += d;
+}
+
+int sum(int x) {
+	int ret = 0;
+	for (int i = x; i; i -= i & -i) ret += b[i];
+	return ret;
+}
+
+void addedge(int x, int y) {
+	//t++; e[t] = (Edge){y, h[x]}; h[x] = t;
+	//t++; e[t] = (Edge){x, h[y]}; h[y] = t;
+	t++; e[t].node = y; e[t].next = h[x]; h[x] = t;
+	t++; e[t].node = x; e[t].next = h[y]; h[y] = t;
+}
+
+int getanc(int x, int t) {
+	for (int i = 0; i <= Maxlog; i++)
+		if (t & (1 << i)) x = f[x][i];
+	return x;
+}
+
+int getlca(int x, int y) {
+	if (d[x] > d[y]) x = getanc(x, d[x] - d[y]);
+	if (d[y] > d[x]) y = getanc(y, d[y] - d[x]);
+	if (x == y) return x;
+	for (int i = Maxlog; i >= 0; i--)
+		if (f[x][i] != f[y][i]) {
+			x = f[x][i];
+			y = f[y][i];
+		}
+	return f[x][0];
+}
+
+void maketree(int x) {
+	static int q[MAXN];
+	int l = 0, r = 0; q[++r] = x;
+	while (l < r) {
+		l++;
+		for (int i = h[q[l]]; i; i = e[i].next) {
+			if (e[i].node == f[q[l]][0]) continue;
+			f[e[i].node][0] = q[l];
+			q[++r] = e[i].node;
+			d[e[i].node] = d[q[l]] + 1;
+		}
+	}
+	for (int j = 1; j <= Maxlog; j++)
+		for (int i = 1; i <= n; i++)
+			f[i][j] = f[f[i][j - 1]][j - 1];
+}
+
+void predfs(int x) {
+	l[x] = ++tot;
+	for (int i = h[x]; i; i = e[i].next) {
+		if (e[i].node == f[x][0]) continue;
+		predfs(e[i].node);
+	}
+	r[x] = ++tot;
+}
+
+void dfs(int x) {
+	int sonsum = 0;
+	for (int i = h[x]; i; i = e[i].next) {
+		if (e[i].node == f[x][0]) continue;
+		dfs(e[i].node);
+		dp[x] += dp[e[i].node];
+		sonsum += dp[e[i].node];
+	}
+	//z[x] += sonsum;
+	add(l[x], sonsum);
+	add(r[x], -sonsum);
+	for (int i = 0, s = g[x].size(); i < s; i++) {
+		int now = g[x][i];
+		dp[x] = max(dp[x], sum(l[c[now].x]) + sum(l[c[now].y]) + c[now].val - sonsum);
+	}
+	//z[x] -= dp[x];
+	add(l[x], -dp[x]);
+	add(r[x], dp[x]);
+}
+
+int main() {
+	freopen("input.txt", "r", stdin);
+	freopen("output.txt", "w", stdout);
+	scanf("%d", &T);
+	while (T--) {
+		tot = 0;
+		memset(h, t = 0, sizeof(h));
+		scanf("%d%d", &n, &m);
+		for (int i = 1; i < n; i++) {
+			int x, y; scanf("%d%d", &x, &y);
+			addedge(x, y);
+		}
+		maketree(1);
+		memset(dp, 0, sizeof(dp));
+		memset(b, 0, sizeof(b));
+		for (int i = 1; i <= n; i++) g[i].clear();
+		for (int i = 1; i <= m; i++) {
+			scanf("%d%d%d", &c[i].x, &c[i].y, &c[i].val);
+			int l = getlca(c[i].x, c[i].y);
+			g[l].push_back(i);
+		}
+		predfs(1);
+		dfs(1);
+		/*for (int i = 1; i <= n; i++)
+			printf("Dp[%d] = %d\n", i, dp[i]);*/
+		printf("%d\n", dp[1]);
+	}
+	return 0;
+}
